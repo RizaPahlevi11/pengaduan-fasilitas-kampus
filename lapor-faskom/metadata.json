@@ -1,0 +1,5 @@
+{
+  "name": "Lapor FasKom",
+  "description": "A simple application for students to report Fasilkom facility issues and for admins to manage these reports. Students can submit reports with details like location, category, and a description. Admins can view all reports and update their status.",
+  "requestFramePermissions": []
+}

@@ -1,0 +1,9 @@
+# Dependencies
+/node_modules
+
+# Environment Variables
+.env
+
+# Build/Artifacts
+/dist
+# Atau folder output kompilasi TypeScript lainnya jika Anda menggunakannya
