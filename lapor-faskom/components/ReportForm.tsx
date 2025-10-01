@@ -6,6 +6,7 @@ import { SpinnerIcon } from './icons/SpinnerIcon';
 import { CheckCircleIcon } from './icons/CheckCircleIcon';
 import { PaperclipIcon } from './icons/PaperclipIcon';
 import { XIcon } from './icons/XIcon';
+import { submitReportService } from '@/services/reportService';
 
 interface ReportFormProps {
   addReport: (newReport: Omit<Report, 'id' | 'status' | 'submittedAt'>) => void;
@@ -34,7 +35,34 @@ const ReportForm: React.FC<ReportFormProps> = ({ addReport, currentUser }) => {
       setUserIdentifier(currentUser.userIdentifier);
     }
   }, [currentUser]);
+const compressImage = (file: File, maxSizeMB: number = 1): Promise<string> => {
+  return new Promise((resolve) => {
+    const reader = new FileReader();
+    reader.readAsDataURL(file);
+    reader.onload = (event) => {
+      const img = new Image();
+      img.src = event.target!.result as string;
 
+      img.onload = () => {
+        const canvas = document.createElement("canvas");
+        let width = img.width;
+        let height = img.height;
+        let quality = 0.8;
+        canvas.width = width;
+        canvas.height = height;
+        const ctx = canvas.getContext("2d");
+        ctx?.drawImage(img, 0, 0, width, height); // Coba kompresi dengan kualitas 80%
+        let compressedBase64 = canvas.toDataURL("image/jpeg", quality); // JIKA UKURAN MASIH TERLALU BESAR, coba kurangi kualitasnya (Iterasi Sederhana)
+        while (compressedBase64.length > maxSizeMB * 1024 * 1024 * 1.33 && quality > 0.1) {
+          quality -= 0.1;
+          compressedBase64 = canvas.toDataURL("image/jpeg", quality);
+        }
+
+        resolve(compressedBase64);
+      };
+    };
+  });
+};
   const handlePhotoChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     if (e.target.files) {
       const files = Array.from(e.target.files);
@@ -45,23 +73,18 @@ const ReportForm: React.FC<ReportFormProps> = ({ addReport, currentUser }) => {
         return;
       }
 
-      files.forEach(file => {
-        if (file.size > MAX_FILE_SIZE_BYTES) {
-          alert(`Ukuran file "${file.name}" terlalu besar. Maksimal ${MAX_FILE_SIZE_MB} MB.`);
+      files.forEach(async (file: File) => {
+        if (!file.type.startsWith("image/")) {
+          alert(`File "${file.name}" bukan gambar.`);
           return;
         }
-        if (!file.type.startsWith('image/')) {
-            alert(`File "${file.name}" bukan gambar.`);
-            return;
+        try {
+          const compressedBase64 = await compressImage(file, MAX_FILE_SIZE_MB);
+          setPhotos((prevPhotos) => [...prevPhotos, compressedBase64]);
+        } catch (error) {
+          console.error("Gagal mengompres gambar:", error);
+          alert(`Gagal memproses gambar "${file.name}".`);
         }
-
-        const reader = new FileReader();
-        reader.onload = (event) => {
-          if (event.target?.result) {
-            setPhotos(prevPhotos => [...prevPhotos, event.target!.result as string]);
-          }
-        };
-        reader.readAsDataURL(file);
       });
     }
   };
@@ -70,34 +93,31 @@ const ReportForm: React.FC<ReportFormProps> = ({ addReport, currentUser }) => {
     setPhotos(photos.filter((_, i) => i !== index));
   };
 
-
-  const handleSubmit = (e: React.FormEvent) => {
+  const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
-    if (!name.trim() || !userIdentifier.trim() || !location.trim() || !description.trim()) {
-      alert('Nama Pelapor, Email/Username, Lokasi, dan Deskripsi tidak boleh kosong.');
-      return;
-    }
-    
     setIsSubmitting(true);
     setSubmitSuccess(false);
 
-    // Simulate network request
-    setTimeout(() => {
-      addReport({ name, userIdentifier, location, specificLocation, category, description, urgency, photos });
-      // Reset only fields that are not pre-filled
-      setDescription('');
-      setLocation('');
-      setSpecificLocation('');
+    const reportPayload = { name, userIdentifier, location, specificLocation, category, description, urgency, photos };
+
+    try {
+      const result = await submitReportService(reportPayload);
+      const response = await fetch(`http://localhost:5000/api/reports?userIdentifier=${userIdentifier}`);
+      const data = await response.json();
+      setDescription("");
+      setLocation("");
+      setSpecificLocation("");
       setCategory(REPORT_CATEGORIES[0]);
       setUrgency(Urgency.Rendah);
       setPhotos([]);
-      
-      setIsSubmitting(false);
       setSubmitSuccess(true);
-      
-      // Hide success message after 3 seconds
+    } catch (error: any) {
+      alert(`Gagal mengirim laporan: ${error.message || "Cek koneksi server dan log backend Anda."}`);
+      setSubmitSuccess(false);
+    } finally {
+      setIsSubmitting(false);
       setTimeout(() => setSubmitSuccess(false), 3000);
-    }, 1000);
+    }
   };
 
   return (

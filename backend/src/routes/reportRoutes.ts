@@ -1,13 +1,7 @@
-// src/routes/reportRoutes.ts
-import { Router } from "express";
-import { createReport, getReports } from "../controllers/reportController";
+import express from "express";
+import { submitReport, getReports } from "../controllers/reportController";
+const router = express.Router();
 
-const router = Router();
-
-// POST /api/report
-router.post("/", createReport);
-
-// GET /api/report
-router.get("/", getReports);
-
+router.post("/", submitReport);
+router.get("/", getReports); 
 export default router;

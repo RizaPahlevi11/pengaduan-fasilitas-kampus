@@ -2,6 +2,7 @@
 import express from "express";
 import cors from "cors";
 import authRoutes from "./routes/authRoutes";
+import reportRoutes from "./routes/reportRoutes"; // <-- BARU: Import route laporan
 
 const app = express();
 
@@ -12,10 +13,12 @@ app.use(
     credentials: true,
   })
 );
-app.use(express.json()); // supaya req.body bisa terbaca
+app.use(express.json({ limit: "10mb" })); // <-- TINGKATKAN BATAS JSON
+app.use(express.urlencoded({ extended: true, limit: "10mb" }));
 
 // Routes
 app.use("/api/auth", authRoutes);
+app.use("/api/reports", reportRoutes); // <-- BARU: Gunakan route laporan
 
 // Start server
 const PORT = 5000;
